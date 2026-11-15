@@ -25,6 +25,7 @@ export const servicioDB = {
           tipoId TEXT NOT NULL,
           descripcion TEXT,
           fotoUri TEXT,
+          fotoUri2 TEXT,
           audioUri TEXT,
           latitud REAL,
           longitud REAL,
@@ -34,12 +35,17 @@ export const servicioDB = {
         );
       `);
 
-      // Verificamos limpiamente si la tabla vieja ya tenía la columna 'direccion'
+      // Verificamos limpiamente con PRAGMA si la tabla vieja ya tenía 'direccion' y 'fotoUri2'
       const columnas = await db.getAllAsync<{ name: string }>(`PRAGMA table_info(cola_reportes);`);
+      
       const tieneDireccion = columnas.some((col) => col.name === 'direccion');
-
       if (!tieneDireccion) {
         await db.runAsync(`ALTER TABLE cola_reportes ADD COLUMN direccion TEXT;`);
+      }
+
+      const tieneFoto2 = columnas.some((col) => col.name === 'fotoUri2');
+      if (!tieneFoto2) {
+        await db.runAsync(`ALTER TABLE cola_reportes ADD COLUMN fotoUri2 TEXT;`);
       }
 
       console.log('Base de datos local inicializada.');
@@ -53,6 +59,7 @@ export const servicioDB = {
     tipoId: string;
     descripcion: string;
     fotoUri: string | null;
+    fotoUri2?: string | null;
     audioUri: string | null;
     latitud: number;
     longitud: number;
@@ -63,13 +70,14 @@ export const servicioDB = {
     const fechaActual = new Date().toISOString();
 
     const resultado = await db.runAsync(
-      `INSERT INTO cola_reportes (codigoTemporal, tipoId, descripcion, fotoUri, audioUri, latitud, longitud, direccion, fechaHora) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO cola_reportes (codigoTemporal, tipoId, descripcion, fotoUri, fotoUri2, audioUri, latitud, longitud, direccion, fechaHora) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         codigoTemporal,
         datos.tipoId,
         datos.descripcion,
         datos.fotoUri,
+        datos.fotoUri2 || null,
         datos.audioUri,
         datos.latitud,
         datos.longitud,
