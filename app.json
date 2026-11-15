@@ -1,24 +1,33 @@
 {
   "expo": {
-    "name": "conceptos-basicos",
-    "slug": "conceptos-basicos",
+    "name": "Reporte Ciudadano",
+    "slug": "reporte-ciudadano",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "conceptosbasicos",
-    "userInterfaceStyle": "automatic",
+    "scheme": "reporteciudadano",
+    "userInterfaceStyle": "light",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "supportsTablet": true,
+      "bundleIdentifier": "ar.gob.gchu.reporteciudadano"
     },
     "android": {
+      "package": "ar.gob.gchu.reporteciudadano",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#007BFF"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.jigcau89.conceptosbasicos"
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT",
+        "VIBRATE"
+      ]
     },
     "web": {
       "output": "static",
@@ -38,6 +47,30 @@
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Reporte Ciudadano necesita usar la cámara para tomar la foto obligatoria del reclamo y escanear códigos QR."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Reporte Ciudadano necesita tu ubicación para georreferenciar el problema en Gualeguaychú."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Reporte Ciudadano necesita acceso a tu galería para adjuntar fotografías del problema o del arreglo."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permite el reingreso rápido con biometría."
         }
       ],
       "expo-audio",
