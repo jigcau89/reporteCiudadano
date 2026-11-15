@@ -1,58 +1,81 @@
+// app/index.tsx
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, TextInput, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
+import {
+  StyleSheet, Text, View, TouchableOpacity, TextInput,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Platform, ScrollView
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { servicioAuth } from '../src/servicios/auth';
 
 export default function PantallaInicio() {
-  const [email, setEmail] = useState('');
-  const [clave, setClave] = useState('');
-  const [cargando, setCargando] = useState(true);
-  const [procesandoLogin, setProcesandoLogin] = useState(false);
+  const [modoRegistro, setModoRegistro] = useState(false);
 
-  // Hook que se ejecuta al abrir la aplicación
+  // Campos del formulario
+  const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [clave, setClave] = useState('');
+
+  const [cargandoSesion, setCargandoSesion] = useState(true);
+  const [procesando, setProcesando] = useState(false);
+
   useEffect(() => {
     const revisarSesion = async () => {
-      const haySesion = await servicioAuth.tieneSesionGuardada();
-      
-      if (haySesion) {
-        // Disparamos la lectura de huella dactilar
-        const biometriaExitosa = await servicioAuth.validarBiometria();
-        if (biometriaExitosa) {
-          router.replace('/(tabs)');
-          return;
-        } else {
-          Alert.alert('Autenticación fallida', 'No se pudo verificar la identidad.');
+      try {
+        const haySesion = await servicioAuth.tieneSesionGuardada();
+        if (haySesion) {
+          const biometriaExitosa = await servicioAuth.validarBiometria();
+          if (biometriaExitosa) {
+            router.replace('/(tabs)');
+            return;
+          }
         }
+      } catch (e) {
+        console.log('Error al verificar sesión inicial:', e);
       }
-      // Si no hay sesión o falló la biometría, mostramos el formulario
-      setCargando(false);
+      setCargandoSesion(false);
     };
 
     revisarSesion();
   }, []);
 
-  const manejarIngreso = async () => {
-    if (!email || !clave) {
-      Alert.alert('Datos incompletos', 'Ingresa tu correo y contraseña.');
+  const manejarAccionPrincipal = async () => {
+    if (!email.trim() || !clave.trim()) {
+      Alert.alert('Datos incompletos', 'Por favor ingresa tu correo electrónico y contraseña.');
       return;
     }
-    // Llama al servicio que guarda el token encriptado
-    setProcesandoLogin(true);
-    const resultado = await servicioAuth.iniciarSesion(email, clave);
-    setProcesandoLogin(false);
-    
-    if (resultado.exito) {
-      // Navegamos a la aplicación principal eliminando el historial de navegación
-      router.replace('/(tabs)');
+
+    if (modoRegistro && !nombre.trim()) {
+      Alert.alert('Falta tu nombre', 'Por favor ingresa tu nombre y apellido para registrarte.');
+      return;
+    }
+
+    setProcesando(true);
+
+    if (modoRegistro) {
+      const resultado = await servicioAuth.registrar(nombre, email, clave, telefono);
+      setProcesando(false);
+
+      if (resultado.exito) {
+        Alert.alert('¡Bienvenido/a!', 'Tu cuenta de vecino fue creada con éxito.');
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('No se pudo registrar', resultado.error || 'Verifica los datos ingresados.');
+      }
     } else {
-      Alert.alert('Error de acceso', resultado.mensaje);
+      const resultado = await servicioAuth.iniciarSesion(email, clave);
+      setProcesando(false);
+
+      if (resultado.exito) {
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('Error de ingreso', resultado.error || 'Correo o contraseña incorrectos.');
+      }
     }
   };
-  
-    
 
-
-  if (cargando) {
+  if (cargandoSesion) {
     return (
       <View style={styles.centro}>
         <ActivityIndicator size="large" color="#007BFF" />
@@ -62,190 +85,168 @@ export default function PantallaInicio() {
   }
 
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <Text style={styles.titulo}>Reporte Ciudadano</Text>
-      <Text style={styles.subtitulo}>Municipalidad de Gualeguaychú</Text>
-      
-      <View style={styles.formulario}>
-        <TextInput
-          style={styles.input}
-          placeholder="Correo electrónico"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          value={email}
-          onChangeText={setEmail}
-          editable={!procesandoLogin}
-        />
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Contraseña"
-          secureTextEntry={true}
-          value={clave}
-          onChangeText={setClave}
-          editable={!procesandoLogin}
-        />
+    <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex1}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+          <Text style={styles.titulo}>Reporte Ciudadano</Text>
+          <Text style={styles.subtitulo}>Municipalidad de Gualeguaychú</Text>
 
-        <TouchableOpacity 
-          style={[styles.boton, procesandoLogin && styles.botonDesactivado]} 
-          onPress={manejarIngreso}
-          disabled={procesandoLogin}
-        >
-          {procesandoLogin ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.textoBoton}>Ingresar</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-    </KeyboardAvoidingView>
+          {/* Selector de modo: Ingresar vs. Crear Cuenta */}
+          <View style={styles.selectorModo}>
+            <TouchableOpacity
+              style={[styles.tabModo, !modoRegistro && styles.tabModoActivo]}
+              onPress={() => setModoRegistro(false)}
+              disabled={procesando}
+            >
+              <Text style={[styles.textoTabModo, !modoRegistro && styles.textoTabModoActivo]}>
+                Ingresar
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.tabModo, modoRegistro && styles.tabModoActivo]}
+              onPress={() => setModoRegistro(true)}
+              disabled={procesando}
+            >
+              <Text style={[styles.textoTabModo, modoRegistro && styles.textoTabModoActivo]}>
+                Crear Cuenta
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.formulario}>
+            {modoRegistro && (
+              <>
+                <Text style={styles.label}>Nombre y Apellido *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ej: Norma Pereyra"
+                  value={nombre}
+                  onChangeText={setNombre}
+                  editable={!procesando}
+                />
+
+                <Text style={styles.label}>Teléfono (opcional)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ej: 3446-412233"
+                  keyboardType="phone-pad"
+                  value={telefono}
+                  onChangeText={setTelefono}
+                  editable={!procesando}
+                />
+              </>
+            )}
+
+            <Text style={styles.label}>Correo electrónico *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="ejemplo@correo.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={email}
+              onChangeText={setEmail}
+              editable={!procesando}
+            />
+
+            <Text style={styles.label}>Contraseña *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Mínimo 6 caracteres"
+              secureTextEntry={true}
+              value={clave}
+              onChangeText={setClave}
+              editable={!procesando}
+            />
+
+            <TouchableOpacity
+              style={[styles.boton, procesando && styles.botonDesactivado]}
+              onPress={manejarAccionPrincipal}
+              disabled={procesando}
+            >
+              {procesando ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.textoBoton}>
+                  {modoRegistro ? 'REGISTRARME COMO VECINO' : 'INGRESAR'}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.botonAlternarInferior}
+              onPress={() => setModoRegistro(!modoRegistro)}
+              disabled={procesando}
+            >
+              <Text style={styles.textoAlternarInferior}>
+                {modoRegistro
+                  ? '¿Ya tenés cuenta? Tocá acá para ingresar'
+                  : '¿Sos vecino nuevo? Tocá acá para crear tu cuenta'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5', padding: 20 },
+  safeArea: { flex: 1, backgroundColor: '#f5f5f5' },
+  flex1: { flex: 1 },
+  scrollContainer: { flexGrow: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   centro: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5' },
   textoCarga: { marginTop: 15, fontSize: 16, color: '#555' },
-  titulo: { fontSize: 28, fontWeight: 'bold', color: '#333' },
-  subtitulo: { fontSize: 16, color: '#666', marginBottom: 40 },
-  formulario: { width: '100%', maxWidth: 400 },
-  input: { backgroundColor: '#fff', padding: 15, borderRadius: 8, marginBottom: 15, fontSize: 16, borderWidth: 1, borderColor: '#ddd' },
-  boton: { backgroundColor: '#007BFF', padding: 15, borderRadius: 8, alignItems: 'center', height: 55, justifyContent: 'center' },
+  titulo: { fontSize: 28, fontWeight: 'bold', color: '#222', textAlign: 'center' },
+  subtitulo: { fontSize: 16, color: '#666', marginBottom: 25, textAlign: 'center' },
+  selectorModo: {
+    flexDirection: 'row',
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#e9ecef',
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 20,
+  },
+  tabModo: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8 },
+  tabModoActivo: { backgroundColor: '#007BFF' },
+  textoTabModo: { fontSize: 16, fontWeight: '600', color: '#495057' },
+  textoTabModoActivo: { color: '#fff', fontWeight: 'bold' },
+  formulario: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+  },
+  label: { fontSize: 15, fontWeight: 'bold', color: '#333', marginBottom: 6 },
+  input: {
+    backgroundColor: '#f8f9fa',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 16,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#ced4da',
+  },
+  boton: {
+    backgroundColor: '#007BFF',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    minHeight: 55,
+    justifyContent: 'center',
+    marginTop: 6,
+  },
   botonDesactivado: { backgroundColor: '#a0c4ff' },
-  textoBoton: { color: '#fff', fontSize: 18, fontWeight: 'bold' }
+  textoBoton: { color: '#fff', fontSize: 17, fontWeight: 'bold' },
+  botonAlternarInferior: { marginTop: 18, paddingVertical: 10, alignItems: 'center' },
+  textoAlternarInferior: { color: '#007BFF', fontSize: 15, fontWeight: '600', textAlign: 'center' },
 });
-
-// import React from 'react';
-// import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
-// import { router } from 'expo-router';
-
-// export default function PantallaInicio() {
-//   return (
-//     <View style={styles.container}>
-//       <Text style={styles.titulo}>Reporte Ciudadano</Text>
-//       <Text style={styles.subtitulo}>Municipalidad de Gualeguaychú</Text>
-      
-//       {/* Botón con un área táctil adecuada[cite: 5] */}
-//       <TouchableOpacity 
-//         style={styles.boton} 
-//         //onPress={() => router.push('/(tabs)/reportes')}
-//         onPress={() => router.replace('/(tabs)')}
-//       >
-//         <Text style={styles.textoBoton}>Ingresar como Vecino</Text>
-//       </TouchableOpacity>
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f5f5', padding: 20 },
-//   titulo: { fontSize: 28, fontWeight: 'bold', color: '#333' },
-//   subtitulo: { fontSize: 16, color: '#666', marginBottom: 40 },
-//   boton: { backgroundColor: '#007BFF', padding: 15, borderRadius: 8, width: '100%', alignItems: 'center' },
-//   textoBoton: { color: '#fff', fontSize: 18, fontWeight: 'bold' }
-// });
-
-// import React, { useState, useEffect } from 'react';
-// import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
-// import * as Location from 'expo-location';
-
-// export default function IndexScreen() {
-//   const [ubicacion, setUbicacion] = useState<Location.LocationObject | null>(null);
-//   const [mensajeError, setMensajeError] = useState<string | null>(null);
-
-//   // Hook que se ejecuta al cargar la pantalla (similar a onCreate en Android)
-//   useEffect(() => {
-//     (async () => {
-//       // 1. Solicitamos permiso al usuario
-//       let { status } = await Location.requestForegroundPermissionsAsync();
-//       if (status !== 'granted') {
-//         setMensajeError('Se denegó el permiso para acceder a la ubicación.');
-//         return;
-//       }
-
-//       // 2. Leemos las coordenadas del GPS[cite: 9]
-//       let location = await Location.getCurrentPositionAsync({});
-//       setUbicacion(location);
-//     })();
-//   }, []);
-
-//   return (
-//     <View style={styles.container}>
-//       <Text style={styles.titulo}>Mi Ubicación GPS</Text>
-      
-//       {mensajeError ? (
-//         <Text style={styles.error}>{mensajeError}</Text>
-//       ) : !ubicacion ? (
-//         <ActivityIndicator size="large" color="#0000ff" />
-//       ) : (
-//         <View style={styles.tarjeta}>
-//           <Text style={styles.texto}>Latitud: {ubicacion.coords.latitude}</Text>
-//           <Text style={styles.texto}>Longitud: {ubicacion.coords.longitude}</Text>
-//           <Text style={styles.texto}>Altitud: {ubicacion.coords.altitude || 'N/A'}</Text>
-//         </View>
-//       )}
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0', padding: 20 },
-//   titulo: { fontSize: 24, fontWeight: 'bold', marginBottom: 20 },
-//   tarjeta: { backgroundColor: '#fff', padding: 20, borderRadius: 10, elevation: 3, width: '100%' },
-//   texto: { fontSize: 16, marginBottom: 10, color: '#333' },
-//   error: { color: 'red', fontSize: 16, textAlign: 'center' }
-// });
-
-
-///-----------------------------------------------
-// import React from 'react';
-// import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert } from 'react-native';
-
-// // Simulamos datos que te servirán para cualquiera de los 5 TFI (Directorio, Guía, Reservas)
-// const datosDePrueba = [
-//   { id: '1', titulo: 'Parque Central', subtitulo: 'Actividades al aire libre' },
-//   { id: '2', titulo: 'Polideportivo Municipal', subtitulo: 'Canchas disponibles' },
-//   { id: '3', titulo: 'Centro Histórico', subtitulo: 'Monumentos y museos' },
-// ];
-
-// export default function IndexScreen() {
-//   // Las Tarjetas (Cards) agrupan información de forma estructurada y visualmente atractiva[cite: 8]
-//   const renderItem = ({ item }: { item: any }) => (
-//     <TouchableOpacity 
-//       style={styles.tarjeta} 
-//       onPress={() => Alert.alert("Seleccionaste:", item.titulo)}
-//     >
-//       <Text style={styles.tituloTarjeta}>{item.titulo}</Text>
-//       <Text style={styles.subtituloTarjeta}>{item.subtitulo}</Text>
-//     </TouchableOpacity>
-//   );
-
-//   return (
-//     <View style={styles.container}>
-//       <Text style={styles.tituloPantalla}>Directorio / Guía</Text>
-      
-//       {/* Componente para mostrar colecciones de forma vertical optimizando la memoria[cite: 8] */}
-//       <FlatList
-//         data={datosDePrueba}
-//         keyExtractor={item => item.id}
-//         renderItem={renderItem}
-//         contentContainerStyle={styles.lista}
-//       />
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: { flex: 1, backgroundColor: '#f0a4a4', paddingTop: 50 },
-//   tituloPantalla: { fontSize: 24, fontWeight: 'bold', textAlign: 'center', marginBottom: 20 },
-//   lista: { paddingHorizontal: 20, paddingBottom: 20 },
-//   tarjeta: { 
-//     backgroundColor: '#c3d2e4', 
-//     padding: 20, 
-//     borderRadius: 10, 
-//     marginBottom: 15,
-//     elevation: 3 // Genera la sombra característica de las Cards en Android
-//   },
-//   tituloTarjeta: { fontSize: 18, fontWeight: 'bold', marginBottom: 5 },
-//   subtituloTarjeta: { fontSize: 14, color: '#666' }
-// });

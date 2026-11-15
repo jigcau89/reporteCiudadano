@@ -33,6 +33,43 @@ export const servicioAuth = {
     }
   },
 
+  /** Registra un nuevo vecino en POST /auth/registro y deja la sesión iniciada */
+  registrar: async (
+    nombre: string,
+    email: string,
+    clave: string,
+    telefono?: string
+  ): Promise<{ exito: boolean; error?: string }> => {
+    try {
+      const payload = {
+        nombre: nombre.trim(),
+        email: email.trim().toLowerCase(),
+        contrasena: clave,
+        telefono: telefono && telefono.trim() !== '' ? telefono.trim() : null
+      };
+
+      const respuesta = await api.post('/auth/registro', payload);
+      const datos = respuesta.data?.datos;
+
+      // Si el registro ya devuelve el token, lo guardamos directamente
+      if (datos?.token) {
+        await SecureStore.setItemAsync(CLAVE_TOKEN, datos.token);
+        if (datos.usuario) {
+          await Storage.setItem(CLAVE_USUARIO, JSON.stringify(datos.usuario));
+        } else {
+          await servicioAuth.obtenerPerfilRemoto();
+        }
+        return { exito: true };
+      }
+
+      // Si el endpoint solo creó el usuario, iniciamos sesión automáticamente
+      return await servicioAuth.iniciarSesion(email, clave);
+    } catch (error: any) {
+      const msg = error.response?.data?.error?.mensaje || 'No se pudo completar el registro.';
+      return { exito: false, error: msg };
+    }
+  },
+
   /** Descarga el perfil actualizado desde GET /yo */
   obtenerPerfilRemoto: async (): Promise<Usuario | null> => {
     try {
