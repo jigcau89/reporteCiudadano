@@ -53,6 +53,14 @@
         }
       ],
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Reporte Ciudadano necesita usar la cámara para tomar la foto obligatoria del reclamo y escanear códigos QR."
@@ -78,7 +86,8 @@
       ],
       "expo-audio",
       "expo-secure-store",
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-build-properties"
     ],
     "experiments": {
       "typedRoutes": true,
